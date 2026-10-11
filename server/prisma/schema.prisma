@@ -1,0 +1,263 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  HOSPITAL_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  RESCHEDULED
+  COMPLETED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_RESCHEDULED
+  SCHEDULE_CHANGED
+  SYSTEM
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(PATIENT)
+  phone        String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  doctorProfile       DoctorProfile?
+  hospitalMemberships HospitalMembership[]
+  appointments        Appointment[]        @relation("PatientAppointments")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model DoctorProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qualifications  String
+  experienceYears Int
+  bio             String
+  consultationFee Float
+  isVerified      Boolean  @default(false)
+  isDemo          Boolean  @default(true)
+  city            String   @default("Karnal")
+  state           String   @default("Haryana")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  specialties   DoctorSpecialty[]
+  affiliations  DoctorHospitalAffiliation[]
+  schedules     DoctorSchedule[]
+  exceptions    ScheduleException[]
+  appointments  Appointment[]
+
+  @@index([city])
+  @@index([isVerified])
+}
+
+model Hospital {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  address     String
+  city        String
+  state       String
+  pincode     String
+  phone       String
+  email       String
+  imageUrl    String?
+  isVerified  Boolean  @default(false)
+  isDemo      Boolean  @default(true)
+  departments String?  // JSON string or comma-separated list of departments
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships  HospitalMembership[]
+  affiliations DoctorHospitalAffiliation[]
+  appointments Appointment[]
+
+  @@index([city])
+  @@index([slug])
+}
+
+model HospitalMembership {
+  id         String   @id @default(uuid())
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("ADMIN")
+  createdAt  DateTime @default(now())
+
+  @@unique([hospitalId, userId])
+}
+
+model MedicalSpecialty {
+  id          String            @id @default(uuid())
+  name        String            @unique
+  slug        String            @unique
+  description String
+  iconName    String?
+  doctors     DoctorSpecialty[]
+}
+
+model DoctorSpecialty {
+  id          String           @id @default(uuid())
+  doctorId    String
+  doctor      DoctorProfile    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialtyId String
+  specialty   MedicalSpecialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, specialtyId])
+}
+
+model DoctorHospitalAffiliation {
+  id              String        @id @default(uuid())
+  doctorId        String
+  doctor          DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospitalId      String
+  hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  consultationFee Float
+  createdAt       DateTime      @default(now())
+
+  @@unique([doctorId, hospitalId])
+}
+
+model DoctorSchedule {
+  id                  String        @id @default(uuid())
+  doctorId            String
+  doctor              DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  dayOfWeek           DayOfWeek
+  startTime           String        // e.g. "09:00"
+  endTime             String        // e.g. "17:00"
+  slotDurationMinutes Int           @default(20)
+  breakStartTime      String?       // e.g. "13:00"
+  breakEndTime        String?       // e.g. "14:00"
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([doctorId, dayOfWeek])
+}
+
+model ScheduleException {
+  id        String        @id @default(uuid())
+  doctorId  String
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date      String        // YYYY-MM-DD
+  reason    String
+  isLeave   Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  @@unique([doctorId, date])
+  @@index([doctorId, date])
+}
+
+model Appointment {
+  id                 String            @id @default(uuid())
+  bookingReference   String            @unique
+  patientId          String
+  patient            User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  doctorId           String
+  doctor             DoctorProfile     @relation(fields: [doctorId], references: [id])
+  hospitalId         String
+  hospital           Hospital          @relation(fields: [hospitalId], references: [id])
+  appointmentDate    String            // YYYY-MM-DD
+  appointmentTime    String            // "10:00 AM" or "10:00"
+  status             AppointmentStatus @default(CONFIRMED)
+  consultationFee    Float
+  notes              String?
+  cancellationReason String?
+  rescheduledFromId  String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  notifications Notification[]
+
+  @@unique([doctorId, appointmentDate, appointmentTime, status], map: "unique_active_doctor_slot")
+  @@index([patientId])
+  @@index([doctorId, appointmentDate])
+  @@index([bookingReference])
+  @@index([status])
+}
+
+model Notification {
+  id                   String           @id @default(uuid())
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                String
+  message              String
+  type                 NotificationType @default(SYSTEM)
+  isRead               Boolean          @default(false)
+  relatedAppointmentId String?
+  relatedAppointment   Appointment?     @relation(fields: [relatedAppointmentId], references: [id], onDelete: SetNull)
+  createdAt            DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+model VerificationRequest {
+  id            String             @id @default(uuid())
+  entityType    String             // "DOCTOR" | "HOSPITAL"
+  entityId      String
+  status        VerificationStatus @default(PENDING)
+  submittedById String
+  notes         String?
+  reviewedById  String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // "BOOK_APPOINTMENT", "CANCEL_APPOINTMENT", etc.
+  entityType String   // "Appointment", "Schedule", etc.
+  entityId   String?
+  details    String?  // JSON serialized context
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
