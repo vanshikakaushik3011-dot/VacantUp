@@ -1,3 +1,4 @@
+
 import { PrismaClient } from '@prisma/client';
 import { inMemStore } from './store.service';
 
@@ -11,9 +12,12 @@ prisma.$connect()
     isPrismaConnected = true;
     console.log('[VacantUp DB] Connected to PostgreSQL via Prisma');
   })
-  .catch((err) => {
+  .catch((err: Error) => {
     isPrismaConnected = false;
-    console.log('[VacantUp DB] PostgreSQL not currently connected. Operating in high-performance memory store fallback mode:', err.message);
+    console.log(
+      '[VacantUp DB] PostgreSQL not currently connected. Operating in high-performance memory store fallback mode:',
+      err.message
+    );
   });
 
 export function getIsPrismaConnected(): boolean {
