@@ -66,6 +66,18 @@ VacantUp/
 └── README.md
 ```
 
+## Deploying to Vercel
+
+The root `vercel.json` configures a Vercel project with two services:
+
+- `web` serves the Vite app from `apps/web`.
+- `server` serves the Express API from `server`.
+- Requests under `/api/` are routed to `server`; all other paths are routed to `web`.
+
+The web app uses the same-origin `/api` path by default, which is routed to the API in Vercel and proxied to the local Express server by Vite during development. `VITE_API_URL` can still override this path when needed.
+
+The browser calls the API through this public route, so no service binding is needed. Configure the API's production environment variables in Vercel, including `DATABASE_URL` for a persistent database and a strong `JWT_SECRET`. The native app in `apps/mobile` is not included as a Vercel service.
+
 ---
 
 ## 🔐 Demonstration Accounts
