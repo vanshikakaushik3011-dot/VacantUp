@@ -1,5 +1,5 @@
 {
-  "name": "vacantup-monorepo",
+  "name": "vacantup",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -12,14 +12,11 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:mobile": "npm run start --workspace=apps/mobile",
     "build:shared": "npm run build --workspace=packages/shared",
-    "build": "npm run build:shared && npm run build:web",
     "build:server": "npm run build --workspace=server",
     "build:web": "npm run build --workspace=apps/web",
+    "build": "npm run build:shared && npm run build:server && npm run build:web",
     "test": "npm run test --workspace=server && npm run test --workspace=apps/web",
     "db:generate": "npm run db:generate --workspace=server",
     "db:seed": "npm run db:seed --workspace=server"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.5"
   }
 }
