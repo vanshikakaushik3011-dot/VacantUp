@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+
+  optimizeDeps: {
+    include: ['@vacantup/shared'],
+  },
+
   server: {
     port: 5173,
     proxy: {
@@ -12,6 +17,7 @@ export default defineConfig({
       },
     },
   },
+
   test: {
     globals: true,
     environment: 'jsdom',
